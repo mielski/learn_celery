@@ -40,10 +40,8 @@ class Calculator:
     def run(self, bucket, scenario):
         ...
 
-def log_progress(n_scenarios, event_tasks_done: Event):
+def log_progress(n_scenarios, client, event_tasks_done: Event):
     """logs the progress of the evaluation tasks by evaluating the number of scenario data written."""
-
-    client = get_client()
 
     format_length = len(str(n_scenarios)) - 1
     while True:
@@ -105,7 +103,7 @@ def batch(n):
     done_event = Event()
 
     # create thread that logs progress
-    log_thread = Thread(target=log_progress, args=(n, done_event,))
+    log_thread = Thread(target=log_progress, args=(n, client, done_event,))
     log_thread.start()
 
     task = EvaluationTask()
