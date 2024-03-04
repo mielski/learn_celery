@@ -46,6 +46,7 @@ class Singleton(type):
 
 
 class RedisMemory(dict):
+    """dictionary that mimics the redis memory, using encoded keys and values."""
 
     @staticmethod
     def encode(value):
@@ -53,6 +54,7 @@ class RedisMemory(dict):
             return value if isinstance(value, (bytes, dict)) else str(value).encode()
         except ValueError:
             raise DataError(f"Invalid data of type '{type(value)}'. Convert to a bytes, string, int or float first")
+
     def __setitem__(self, key, value):
         key = self.encode(key)
         value = self.encode(value)
