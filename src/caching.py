@@ -2,10 +2,10 @@
 import logging
 import os
 import warnings
-from typing import Protocol, Optional
+from typing import Protocol, Optional, Any
 
 import redis
-from redis import client, RedisError, Redis
+from redis import client, RedisError, Redis, DataError
 from urllib.parse import urlparse
 
 NO_REDIS_WARNING = "no redis connection configured, using proxy"
@@ -33,6 +33,9 @@ class ClientProtocol(Protocol):
     def hget(self, name) -> Optional[str]:
         ...
 
+    def hgetall(self, name) -> dict:
+        ...
+
 
 class Singleton(type):
     _instances = {}
@@ -42,18 +45,65 @@ class Singleton(type):
         return cls._instances[cls]
 
 
+class RedisMemory(dict):
+
+    @staticmethod
+    def encode(value):
+        try:
+            return value if isinstance(value, (bytes, dict)) else str(value).encode()
+        except ValueError:
+            raise DataError(f"Invalid data of type '{type(value)}'. Convert to a bytes, string, int or float first")
+    def __setitem__(self, key, value):
+        key = self.encode(key)
+        value = self.encode(value)
+        if isinstance(value, dict):
+            value = RedisMemory(value)
+        super().__setitem__(key, value)
+
+    def __getitem__(self, key):
+
+        return super().__getitem__(self.encode(key))
+
+    def __delitem__(self, key):
+        key = self.encode(key)
+        super().__delitem__(key)
+
+    def setdefault(self, key, default=None):
+        key = self.encode(key)
+        if key not in self:
+            self[key] = default
+
+        return self[key]
+
+    def get(self, key):
+        key = self.encode(key)
+        if key in self:
+          return self[key]
+
+
 class RedisProxy(metaclass=Singleton):
     """Proxy for a redis client for local development/testing without redis server.
 
     only implements the methods which are used in this application."""
     def __init__(self):
 
-        self._data = {}
+        self._data = RedisMemory()
+
+    def reset(self):
+        self._data = RedisMemory()
 
     def hset(self, name, key=None, value=None, mappings=None, items=None) -> int:
 
         if mappings is not None:
-            raise NotImplemented("no logic in RedisProxy for mapping parameter")
+            if value is not None:
+                raise AttributeError("cannot give both value and mapping")
+            return_int = 0
+            dict_item = self._data.setdefault(name, {})
+            for key, value in mappings.items():
+                if key not in dict_item:
+                    return_int += 1
+                dict_item[key] = value
+            return return_int
 
         if items is not None:
             raise NotImplemented("no logic in RedisProxy for items parameter")
@@ -67,7 +117,7 @@ class RedisProxy(metaclass=Singleton):
         success = 0
         for name in names:
             try:
-                del self._data[str(name)]
+                del self._data[name]
                 success += 1
             except KeyError:
                 pass
@@ -75,15 +125,19 @@ class RedisProxy(metaclass=Singleton):
 
     def hlen(self, name):
 
-        return len(self._data[str(name)])
+        return len(self._data[name])
 
     def hget(self, name, key) -> Optional[str]:
 
-        return self._data[name].get(str(key))
+        return self._data[name].get(key)
+
+    def hgetall(self, name):
+
+        return self._data[name]
 
     def exists(self, name) -> int:
 
-        return int(str(name) in self._data)
+        return int(name in self._data)
 
 
 warnings.filterwarnings("once", NO_REDIS_WARNING)

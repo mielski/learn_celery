@@ -1,5 +1,6 @@
 import datetime
 import os
+import random
 import time
 from threading import Thread, Event
 from time import sleep
@@ -53,18 +54,19 @@ class EvaluationTask(celery_app.Task):
 
     def initialize(self):
 
-        portolio, scenario = self.cache_client.hget()
+        # portolio, scenario = self.cache_client.hget()
+        ...
 
     def run(self, bucket, scenario):
 
         self.cache_client = get_client()
-        if not self.worker:
-            self.initialize_worker()
+        # if not self.worker:
+        #     self.initialize_worker()
 
 
 
 
-        time.sleep(3)
+        time.sleep(random.expovariate(1))
         # simulate that an array of 17 indices is returned
         array = 0.1 * np.random.random(17) + scenario
         # noinspection PyTypeChecker
@@ -99,7 +101,7 @@ if __name__ == '__main__':
 
     n = 10
     client = get_client()
-    client.hset("data", mapping={"portfolio": "123", "scenario": "567"})
+    # client.hset("data", mapping={"portfolio": "123", "scenario": "567"})
 
 
     # flush the redis values
