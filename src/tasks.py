@@ -63,7 +63,7 @@ class EvaluationTask(celery_app.Task):
 
     def __init__(self):
         self.worker = None
-        self.redis = get_client()
+
 
     def initialize_worker(self, scenario):
 
@@ -75,7 +75,7 @@ class EvaluationTask(celery_app.Task):
         self.worker = portfolio
 
     def run(self, bucket, scenario):
-
+        self.redis = get_client()
         if not self.worker:
             self.initialize_worker(scenario)
 
@@ -131,6 +131,7 @@ def batch(n):
     valuations = np.array([np.frombuffer(client.hget(KEY, i)) for i in range(n)])
     print(valuations)
     return len(valuations)
+
 
 if __name__ == '__main__':
 

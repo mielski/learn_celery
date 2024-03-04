@@ -155,5 +155,5 @@ def get_client() -> ClientProtocol:
         url_components = urlparse(redis_url)
         return redis.Redis(host=url_components.hostname, port=url_components.port, socket_timeout=3)
     else:
-        warnings.warn(NO_REDIS_WARNING)
+        warnings.warn(NO_REDIS_WARNING, stacklevel=4)
         return RedisProxy()
