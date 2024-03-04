@@ -43,7 +43,7 @@ class TestRedisProxy():
          ]
     )
     def test_data_hset_getall_mapping(self, name, mapping, expected):
-        self.proxy.hset(name, mappings=mapping)
+        self.proxy.hset(name, mapping=mapping)
         assert self.proxy.hgetall(name) == expected
 
     @pytest.mark.parametrize(
@@ -54,7 +54,7 @@ class TestRedisProxy():
          ]
     )
     def test_hlen(self, name, mapping, expected):
-        self.proxy.hset(name, mappings=mapping)
+        self.proxy.hset(name, mapping=mapping)
         assert self.proxy.hlen(name) == expected
 
     def test_exist_and_delete(self):

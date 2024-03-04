@@ -46,6 +46,23 @@ class Calculator:
     def run(self, bucket, scenario):
         ...
 
+def log_progress(n_scenarios, event_tasks_done: Event):
+    """logs the progress of the evaluation tasks by evaluating the number of scenario data written."""
+
+    client = get_client()
+
+    format_length = len(str(n_scenarios)) - 1
+    while True:
+        time.sleep(2)
+        if event_tasks_done.is_set():
+            break
+        if not client.exists(KEY):
+            continue
+        n_complete = client.hlen(KEY)
+        progress = n_complete / n_scenarios * 100
+        print(datetime.datetime.now(),
+              f"[{n_complete:{format_length}}/{n_scenarios}] Done ({progress:.1f}%)")
+
 class EvaluationTask(celery_app.Task):
     name = "tasks.EvaluationTask"
 
@@ -99,30 +116,16 @@ if __name__ == '__main__':
     celery_app.conf.broker_url = os.environ["CELERY_BROKER_URL"]
     celery_app.conf.result_backend = os.environ["CELERY_RESULT_BACKEND"]
 
-    n = 10
+    n = 100
     client = get_client()
-    # client.hset("data", mapping={"portfolio": "123", "scenario": "567"})
+    client.hset("data", mapping={"portfolio": "123", "scenario": "567"})
 
 
     # flush the redis values
     client.delete(KEY)
 
     done_event = Event()
-    def log_progress(n_scenarios, event_tasks_done: Event):
 
-        client = get_client()
-
-        format_length = len(str(n_scenarios)) - 1
-        while True:
-            time.sleep(2)
-            if event_tasks_done.is_set():
-                break
-            if not client.exists(KEY):
-                continue
-            n_complete = client.hlen(KEY)
-            progress = n_complete / n_scenarios * 100
-            print(datetime.datetime.now(),
-                  f"[{n_complete:{format_length}}/{n_scenarios}] Done ({progress:.1f}%)")
 
     # create thread that logs progress
     log_thread = Thread(target=log_progress, args=(n, done_event,))

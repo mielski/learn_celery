@@ -87,8 +87,6 @@ class RedisMemory(dict):
           return self[key]
 
 
-
-
 class RedisProxy(metaclass=Singleton):
     """Proxy for a redis client for local development/testing without redis server.
 
@@ -100,14 +98,14 @@ class RedisProxy(metaclass=Singleton):
     def reset(self):
         self._data = RedisMemory()
 
-    def hset(self, name, key=None, value=None, mappings=None, items=None) -> int:
+    def hset(self, name, key=None, value=None, mapping=None, items=None) -> int:
 
-        if mappings is not None:
+        if mapping is not None:
             if value is not None:
                 raise AttributeError("cannot give both value and mapping")
             return_int = 0
             dict_item = self._data.setdefault(name, {})
-            for key, value in mappings.items():
+            for key, value in mapping.items():
                 if key not in dict_item:
                     return_int += 1
                 dict_item[key] = value
