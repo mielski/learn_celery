@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pandas = "*"
+numpy = "*"
+redis = "*"
+celery = {extras = ["pytest"], version = "*"}
+gevent = "*"
+pytest = "*"
+pytest-celery = "*"
+
+[dev-packages]
+pytest = "*"
+python-dotenv = "*"
+
+[requires]
+python_version = "3.9"
