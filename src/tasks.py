@@ -6,16 +6,9 @@ from threading import Thread, Event
 from time import sleep
 from app import celery_app
 
-# if __name__ == '__main__':
-#     from dotenv import load_dotenv
-#     load_dotenv()
-#
-#     celery_app.conf.broker_url = os.environ["CELERY_BROKER_URL"]
-#     celery_app.conf.result_backend = os.environ["CELERY_RESULT_BACKEND"]
-
-
 import numpy as np
 
+from celery import group
 from celery.utils.log import get_task_logger
 
 from caching import get_client
@@ -70,20 +63,19 @@ class EvaluationTask(celery_app.Task):
 
     def __init__(self):
         self.worker = None
-        self.cache_client = get_client()
+        self.redis = get_client()
 
     def initialize_worker(self, scenario):
 
-        if not self.cache_client.exists("data"):
+        if not self.redis.exists("data"):
             raise RuntimeError("cannot start worker, no input data found in redis cache ('data'))")
 
-        portfolio = self.cache_client.hget("data", "portfolio")
+        portfolio = self.redis.hget("data", "portfolio")
         logger.info(f"starting worker with scenario {scenario}")
         self.worker = portfolio
 
     def run(self, bucket, scenario):
 
-        # self.cache_client = get_client()
         if not self.worker:
             self.initialize_worker(scenario)
 
@@ -91,7 +83,7 @@ class EvaluationTask(celery_app.Task):
         # simulate that an array of 17 indices is returned
         array = 0.1 * np.random.random(17) + scenario
         # noinspection PyTypeChecker
-        self.cache_client.hset(KEY, scenario, array.tobytes())
+        self.redis.hset(KEY, scenario, array.tobytes())
 
 
 
@@ -100,36 +92,17 @@ celery_app.register_task(EvaluationTask)
 
 
 @celery_app.task(name="tasks.batch")
-def batch():
+def batch(n):
     """main task that will run several evaluation tasks"""
 
-    n = 100
-
-    eval_task = EvaluationTask()
-    out = eval_task.delay(2, 3).get(disable_sync_subtasks=False)
-    print(out)
-
-if __name__ == '__main__':
-
-    # start the batch task
-    from dotenv import load_dotenv
-    from celery import group
-
-    load_dotenv()
-
-    celery_app.conf.broker_url = os.environ["CELERY_BROKER_URL"]
-    celery_app.conf.result_backend = os.environ["CELERY_RESULT_BACKEND"]
-
-    n = 100
     client = get_client()
+    client.delete("data")
     client.hset("data", mapping={"portfolio": np.array([1, 2, 3]).tobytes(), "scenario": "567"})
-
 
     # flush the redis values
     client.delete(KEY)
 
     done_event = Event()
-
 
     # create thread that logs progress
     log_thread = Thread(target=log_progress, args=(n, done_event,))
@@ -142,8 +115,7 @@ if __name__ == '__main__':
         def __init__(self, signatures):
             self.signatures = signatures
 
-        def get(self):
-
+        def get(self, **kwargs):
             for s in self.signatures:
                 s()
 
@@ -153,9 +125,28 @@ if __name__ == '__main__':
     else:
         grouptask = LocalGroup(signatures)
 
-    grouptask.get()
+    grouptask.get(disable_sync_subtasks=False)
     done_event.set()
 
     valuations = np.array([np.frombuffer(client.hget(KEY, i)) for i in range(n)])
     print(valuations)
+    return len(valuations)
+
+if __name__ == '__main__':
+
+    # start the batch task
+    from dotenv import load_dotenv
+
+
+    load_dotenv()
+
+    celery_app.conf.broker_url = os.environ["CELERY_BROKER_URL"]
+    celery_app.conf.result_backend = os.environ["CELERY_RESULT_BACKEND"]
+
+    print(batch(40))
+
+    print("calling batch via celery")
+    print(batch.delay(40).get())
+
+
 
