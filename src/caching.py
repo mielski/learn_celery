@@ -64,6 +64,10 @@ class RedisMemory(dict):
 
         return super().__getitem__(self.encode(key))
 
+    def __contains__(self, key):
+        key = self.encode(key)
+        return super().__contains__(key)
+
     def __delitem__(self, key):
         key = self.encode(key)
         super().__delitem__(key)
@@ -79,6 +83,8 @@ class RedisMemory(dict):
         key = self.encode(key)
         if key in self:
           return self[key]
+
+
 
 
 class RedisProxy(metaclass=Singleton):

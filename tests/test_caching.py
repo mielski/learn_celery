@@ -39,12 +39,32 @@ class TestRedisProxy():
     @pytest.mark.parametrize(
         ("name", "mapping", "expected"),
         [("a", {1: 2, 3: 4}, {b"1": b"2", b"3": b"4"}),
-         ("a", {b"1": 2, 3: b"4"}, {b"1": b"2", b"3": b"4"}),
+         ("a", {b"1": 2, 3: "4"}, {b"1": b"2", b"3": b"4"}),
          ]
     )
     def test_data_hset_getall_mapping(self, name, mapping, expected):
         self.proxy.hset(name, mappings=mapping)
         assert self.proxy.hgetall(name) == expected
+
+    @pytest.mark.parametrize(
+        ("name", "mapping", "expected"),
+        [("a", {1: 2, 3: 4}, 2),
+         ("a", {b"1": 2, 2: b"4", 3: "s"}, 3),
+         ("a", {}, 0),
+         ]
+    )
+    def test_hlen(self, name, mapping, expected):
+        self.proxy.hset(name, mappings=mapping)
+        assert self.proxy.hlen(name) == expected
+
+    def test_exist_and_delete(self):
+
+        assert self.proxy.exists("a") == 0
+        self.proxy.hset("a", 1, 1)
+        assert self.proxy.exists("a") == 1
+        self.proxy.delete("a")
+        assert self.proxy.exists("a") == 0
+
 
     def test_data_reset(self):
 
