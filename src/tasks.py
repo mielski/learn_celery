@@ -24,6 +24,7 @@ KEY = "valuations"
 logger = get_task_logger(__name__)
 
 
+
 @celery_app.task(name="tasks.add")
 def add(x, y):
     logger.info('hello world')
@@ -63,25 +64,28 @@ def log_progress(n_scenarios, event_tasks_done: Event):
         print(datetime.datetime.now(),
               f"[{n_complete:{format_length}}/{n_scenarios}] Done ({progress:.1f}%)")
 
+
 class EvaluationTask(celery_app.Task):
     name = "tasks.EvaluationTask"
 
     def __init__(self):
         self.worker = None
+        self.cache_client = get_client()
 
-    def initialize(self):
+    def initialize_worker(self, scenario):
 
-        # portolio, scenario = self.cache_client.hget()
-        ...
+        if not self.cache_client.exists("data"):
+            raise RuntimeError("cannot start worker, no input data found in redis cache ('data'))")
+
+        portfolio = self.cache_client.hget("data", "portfolio")
+        logger.info(f"starting worker with scenario {scenario}")
+        self.worker = portfolio
 
     def run(self, bucket, scenario):
 
-        self.cache_client = get_client()
-        # if not self.worker:
-        #     self.initialize_worker()
-
-
-
+        # self.cache_client = get_client()
+        if not self.worker:
+            self.initialize_worker(scenario)
 
         time.sleep(random.expovariate(1))
         # simulate that an array of 17 indices is returned
@@ -118,7 +122,7 @@ if __name__ == '__main__':
 
     n = 100
     client = get_client()
-    client.hset("data", mapping={"portfolio": "123", "scenario": "567"})
+    client.hset("data", mapping={"portfolio": np.array([1, 2, 3]).tobytes(), "scenario": "567"})
 
 
     # flush the redis values
