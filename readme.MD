@@ -1,4 +1,15 @@
-steps to get started
+# Introduction
+
+This is my learning repository on celery best practices and patterns
+
+## Case: local and remove runs with groups
+
+One of the concepts in this branch is to use group() workflows with celery for efficiency, but making an orchestration which
+still allows a developer to run this locally without celery.
+
+Second concept it shows is how to use caching to initialize workers.
+
+## 
 
 - install the dependencies with pipenv:
   `pipenv install`
