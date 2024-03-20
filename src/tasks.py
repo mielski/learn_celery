@@ -2,6 +2,7 @@ import datetime
 import os
 import random
 import time
+import warnings
 from threading import Thread, Event
 from time import sleep
 from app import celery_app
@@ -16,6 +17,9 @@ from caching import get_client
 KEY = "valuations"
 logger = get_task_logger(__name__)
 
+
+NO_BROKER_WARNING = "no celery broker configured -> using eager mode"
+warnings.filterwarnings("once", NO_BROKER_WARNING)
 
 
 @celery_app.task(name="tasks.add")
@@ -70,6 +74,7 @@ class EvaluationTask(celery_app.Task):
 
         portfolio = self.redis.hget("data", "portfolio")
         logger.info(f"starting worker with scenario {scenario}")
+        time.sleep(10)  # simulating the initial time needed to setup the worker.
         self.worker = portfolio
 
     def run(self, bucket, scenario):
@@ -106,23 +111,14 @@ def batch(n):
     log_thread = Thread(target=log_progress, args=(n, client, done_event,))
     log_thread.start()
 
+    if not os.environ.get("CELERY_BROKER_URL"):
+        # no celery backend -> run locally using always eager
+        warnings.warn(NO_BROKER_WARNING, stacklevel=4)
+        celery_app.conf.task_always_eager = True
+
     task = EvaluationTask()
-
-    class LocalGroup:
-
-        def __init__(self, signatures):
-            self.signatures = signatures
-
-        def get(self, **kwargs):
-            for s in self.signatures:
-                s()
-
-    signatures = (task.si("foo", x) for x in range(n))
-    if os.environ["CELERY_RESULT_BACKEND"]:
-        grouptask = group(signatures)()
-    else:
-        grouptask = LocalGroup(signatures)
-
+    signatures = (task.si("bucket", x) for x in range(n))
+    grouptask = group(signatures)()
     grouptask.get(disable_sync_subtasks=False)
     done_event.set()
 
@@ -142,10 +138,9 @@ if __name__ == '__main__':
     celery_app.conf.broker_url = os.environ["CELERY_BROKER_URL"]
     celery_app.conf.result_backend = os.environ["CELERY_RESULT_BACKEND"]
 
-    print(batch(40))
+    print(batch(60))
 
-    print("calling batch via celery")
-    print(batch.delay(40).get())
-
+    # print("calling batch via celery")
+    # print(batch.delay(100).get())
 
 
